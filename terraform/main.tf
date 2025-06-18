@@ -119,7 +119,7 @@ module "private_rt" {
 
 module "db" {
   source                          = "./modules/rds"
-  db_name                         = "source-db"
+  db_name                         = "sourcedb"
   allocated_storage               = 100
   engine                          = "mysql"
   engine_version                  = "8.0"
@@ -184,12 +184,12 @@ module "backup_function_code" {
 }
 
 # Lambda IAM  Role
-module "lambda_role" {
+module "db_snapshot_lambda_role" {
   source             = "./modules/iam"
-  role_name          = "lambda_function_iam_role"
-  role_description   = "lambda_function_iam_role"
-  policy_name        = "lambda_function_iam_policy"
-  policy_description = "lambda_function_iam_policy"
+  role_name          = "db_snapshot_lambda_role"
+  role_description   = "db_snapshot_lambda_role"
+  policy_name        = "db_snapshot_lambda_iam_policy"
+  policy_description = "db_snapshot_lambda_iam_policy"
   assume_role_policy = <<EOF
     {
         "Version": "2012-10-17",
@@ -219,7 +219,7 @@ module "lambda_role" {
                 ],
                 "Resource": "*",
                 "Effect": "Allow"
-            },            
+            }          
         ]
     }
     EOF
@@ -228,7 +228,7 @@ module "lambda_role" {
 module "backup_function" {
   source        = "./modules/lambda"
   function_name = "rds-backup-function"
-  role_arn      = module.lambda_role.arn
+  role_arn      = module.db_snapshot_lambda_role.arn
   permissions = [
     {
       statement_id = "AllowExecutionFromEventBridge"
@@ -238,7 +238,7 @@ module "backup_function" {
     }
   ]
   env_variables = {
-    DB_INSTANCE_IDENTIFIER = "prod-database"
+    DB_INSTANCE_IDENTIFIER = module.db.name
   }
   handler   = "backup_function.lambda_handler"
   runtime   = "python3.12"
@@ -278,7 +278,7 @@ module "scheduler_role" {
                 ],
                 "Resource": "${module.backup_function.arn}",
                 "Effect": "Allow"
-            },            
+            }      
         ]
     }
     EOF
@@ -291,7 +291,7 @@ module "scheduler" {
   group_name                = "default"
   flexible_time_window      = "OFF"
   maximum_window_in_minutes = 0
-  schedule_expression       = "cron(0 2 * * ? *)" # 2 AM daily
+  schedule_expression       = "cron(0 2 * * ? *)"
   target_arn                = module.backup_function.arn
   role_arn                  = module.scheduler_role.arn
 }
