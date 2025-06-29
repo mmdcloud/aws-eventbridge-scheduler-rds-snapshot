@@ -291,7 +291,7 @@ module "scheduler" {
   group_name                = "default"
   flexible_time_window      = "OFF"
   maximum_window_in_minutes = 0
-  schedule_expression       = "cron(0 2 * * ? *)"
+  schedule_expression       = "cron(5 6 * * ? *)"
   target_arn                = module.backup_function.arn
   role_arn                  = module.scheduler_role.arn
 }
